@@ -275,6 +275,12 @@
   version = "1.0.0"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/nfnt/resize"
+  packages = ["."]
+  revision = "83c6a9932646f83e3267f353373d47347b6036b2"
+
+[[projects]]
   name = "github.com/openshift/api"
   packages = [
     "authorization/v1",
@@ -283,6 +289,15 @@
   ]
   revision = "0d921e363e951d89f583292c60d013c318df64dc"
   version = "v3.9.0"
+
+[[projects]]
+  name = "github.com/operator-framework/operator-lifecycle-manager"
+  packages = [
+    "pkg/api/apis",
+    "pkg/api/apis/clusterserviceversion/v1alpha1"
+  ]
+  revision = "94bf9838968494451c3b5147cf9146baf3c5c48f"
+  version = "0.4.0"
 
 [[projects]]
   name = "github.com/pborman/uuid"
@@ -495,6 +510,15 @@
   revision = "1c973d529bdf4c4f349357ca665fb8e1d13e2d0d"
 
 [[projects]]
+  branch = "master"
+  name = "k8s.io/apiextensions-apiserver"
+  packages = [
+    "pkg/apis/apiextensions",
+    "pkg/apis/apiextensions/v1beta1"
+  ]
+  revision = "a01914bc74d2605fef74a0248d2eec998f0bb093"
+
+[[projects]]
   branch = "release-1.9"
   name = "k8s.io/apimachinery"
   packages = [
@@ -605,6 +629,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "754502d2ea236a3d7aa74c35da1aa8651546c43471e399e1120c37ea06c875bd"
+  inputs-digest = "2e2755f280ca34d65ea66bcad4ed4191b1a986a68d3dec56c573ccca67222481"
   solver-name = "gps-cdcl"
   solver-version = 1
