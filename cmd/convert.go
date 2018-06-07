@@ -22,7 +22,8 @@ import (
 	"github.com/automationbroker/bundle-lib/bundle"
 	"github.com/coreos/go-semver/semver"
 	"github.com/nfnt/resize"
-	csv "github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/clusterserviceversion/v1alpha1"
+	olmCSV "github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/clusterserviceversion/v1alpha1"
+	olmRegistry "github.com/operator-framework/operator-lifecycle-manager/pkg/controller/registry"
 	"github.com/spf13/cobra"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,7 +39,10 @@ var convertCmd = &cobra.Command{
 	Short: "Convert apb.yml to operator resources",
 	Long:  `Convert apb.yml to CustomResourceDefinition and ClusterServiceVersion for use as an operator`,
 	Run: func(cmd *cobra.Command, args []string) {
-		panic(runConvert())
+		err := runConvert()
+		if err != nil {
+			panic(err)
+		}
 	},
 }
 
@@ -61,14 +65,14 @@ func runConvert() error {
 	if err != nil {
 		return err
 	}
-	csvs, crds, err := convertSpec(spec)
+	csvs, crds, packages, err := convertSpec(spec)
 	if err != nil {
 		return err
 	}
-	return writeArtifacts(csvs, crds)
+	return writeArtifacts(csvs, crds, packages)
 }
 
-func writeArtifacts(csvs []csv.ClusterServiceVersion, crds []v1beta1.CustomResourceDefinition) error {
+func writeArtifacts(csvs []olmCSV.ClusterServiceVersion, crds []v1beta1.CustomResourceDefinition, packages []olmRegistry.PackageManifest) error {
 	dirMode := os.FileMode(0766)
 	fileMode := os.FileMode(0666)
 	err := os.MkdirAll(outputDir, dirMode)
@@ -113,15 +117,27 @@ func writeArtifacts(csvs []csv.ClusterServiceVersion, crds []v1beta1.CustomResou
 	return nil
 }
 
-func convertSpec(spec *bundle.Spec) ([]csv.ClusterServiceVersion, []v1beta1.CustomResourceDefinition, error) {
-	csvs := []csv.ClusterServiceVersion{}
+func convertSpec(spec *bundle.Spec) ([]olmCSV.ClusterServiceVersion, []v1beta1.CustomResourceDefinition, []olmRegistry.PackageManifest, error) {
+	csvs := []olmCSV.ClusterServiceVersion{}
 	crds := []v1beta1.CustomResourceDefinition{}
+	packages := []olmRegistry.PackageManifest{}
 	for _, plan := range spec.Plans {
 		crd := PlanToCRD(spec, plan)
 		crds = append(crds, crd)
-		csvs = append(csvs, PlanToCSV(plan, spec, crd))
+		csv := PlanToCSV(plan, spec, crd)
+		csvs = append(csvs, csv)
+		packages = append(packages, olmRegistry.PackageManifest{
+			PackageName: csv.ObjectMeta.Name,
+			Channels: []olmRegistry.PackageChannel{
+				olmRegistry.PackageChannel{
+					Name:           csv.Spec.Maturity,
+					CurrentCSVName: csv.ObjectMeta.Name,
+				},
+			},
+		})
+
 	}
-	return csvs, crds, nil
+	return csvs, crds, packages, nil
 }
 
 func PlanToCRD(spec *bundle.Spec, plan bundle.Plan) v1beta1.CustomResourceDefinition {
@@ -309,17 +325,17 @@ func getVersion(apb_version string) *semver.Version {
 	return semver.New(apb_version + ".0.0") //TODO
 }
 
-func PlanToCSV(plan bundle.Plan, spec *bundle.Spec, crd v1beta1.CustomResourceDefinition) csv.ClusterServiceVersion {
+func PlanToCSV(plan bundle.Plan, spec *bundle.Spec, crd v1beta1.CustomResourceDefinition) olmCSV.ClusterServiceVersion {
 
 	specVersion := getVersion(spec.Version)
 	csvName := fmt.Sprintf("%s.%s", spec.FQName, plan.Name)
 	displayName := fmt.Sprintf("%s: %s plan", getAPBMeta(spec.Metadata, "displayName", spec.FQName), plan.Name)
 	description := getAPBMeta(spec.Metadata, "longDescription", spec.Description)
 
-	return csv.ClusterServiceVersion{
+	return olmCSV.ClusterServiceVersion{
 		TypeMeta: metav1.TypeMeta{
-			Kind:       csv.ClusterServiceVersionKind,
-			APIVersion: csv.ClusterServiceVersionAPIVersion,
+			Kind:       olmCSV.ClusterServiceVersionKind,
+			APIVersion: olmCSV.ClusterServiceVersionAPIVersion,
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      csvName,
@@ -329,32 +345,32 @@ func PlanToCSV(plan bundle.Plan, spec *bundle.Spec, crd v1beta1.CustomResourceDe
 				"alm-examples":        generateExample(crd),
 			},
 		},
-		Spec: csv.ClusterServiceVersionSpec{
+		Spec: olmCSV.ClusterServiceVersionSpec{
 			DisplayName: displayName,
 			Description: description,
 			Keywords:    spec.Tags,
-			Maintainers: []csv.Maintainer{}, //TODO
+			Maintainers: []olmCSV.Maintainer{}, //TODO
 			Version:     *specVersion,
 			Maturity:    "alpha",
-			Provider: csv.AppLink{
+			Provider: olmCSV.AppLink{
 				Name: "Automation Broker",
 				URL:  "automationbroker.io",
 			},
 			Links: getLinks(spec.Metadata),
-			Icon:  []csv.Icon{getIcon(spec)},
-			InstallStrategy: csv.NamedInstallStrategy{
+			Icon:  []olmCSV.Icon{getIcon(spec)},
+			InstallStrategy: olmCSV.NamedInstallStrategy{
 				StrategyName:    "deployment",
 				StrategySpecRaw: json.RawMessage(apbDeployment(spec, plan, crd)),
 			},
-			CustomResourceDefinitions: csv.CustomResourceDefinitions{
-				Owned: []csv.CRDDescription{CRDToCSVCRD(crd)},
+			CustomResourceDefinitions: olmCSV.CustomResourceDefinitions{
+				Owned: []olmCSV.CRDDescription{CRDToCSVCRD(crd)},
 			},
 		},
 	}
 }
 
-func getLinks(metadata map[string]interface{}) []csv.AppLink {
-	links := []csv.AppLink{}
+func getLinks(metadata map[string]interface{}) []olmCSV.AppLink {
+	links := []olmCSV.AppLink{}
 
 	for k, v := range metadata {
 		stringified := fmt.Sprintf("%v", v)
@@ -363,7 +379,7 @@ func getLinks(metadata map[string]interface{}) []csv.AppLink {
 			// assume this is not a link
 			continue
 		}
-		links = append(links, csv.AppLink{
+		links = append(links, olmCSV.AppLink{
 			Name: camelToTitle(k),
 			URL:  stringified,
 		})
@@ -382,8 +398,8 @@ func camelToTitle(s string) string {
 	return strings.Title(strings.Join(ret, ""))
 }
 
-func getIcon(spec *bundle.Spec) csv.Icon {
-	defaultReturn := csv.Icon{
+func getIcon(spec *bundle.Spec) olmCSV.Icon {
+	defaultReturn := olmCSV.Icon{
 		Data:      defaultAPBIcon,
 		MediaType: "image/png",
 	}
@@ -420,15 +436,15 @@ func getIcon(spec *bundle.Spec) csv.Icon {
 
 	content := imageBuffer.Bytes()
 
-	return csv.Icon{
+	return olmCSV.Icon{
 		Data:      base64.StdEncoding.EncodeToString(content),
 		MediaType: contentType,
 	}
 }
 
 // TODO: needs to be plural
-func CRDToCSVCRD(crd v1beta1.CustomResourceDefinition) csv.CRDDescription {
-	return csv.CRDDescription{
+func CRDToCSVCRD(crd v1beta1.CustomResourceDefinition) olmCSV.CRDDescription {
+	return olmCSV.CRDDescription{
 		Name:            crd.ObjectMeta.Name,
 		DisplayName:     crd.Spec.Names.Kind,
 		Version:         crd.Spec.Version,
@@ -437,10 +453,10 @@ func CRDToCSVCRD(crd v1beta1.CustomResourceDefinition) csv.CRDDescription {
 	}
 }
 
-func JSONSchemasToSpecDescriptors(schema *v1beta1.JSONSchemaProps) []csv.SpecDescriptor {
-	descriptors := []csv.SpecDescriptor{}
+func JSONSchemasToSpecDescriptors(schema *v1beta1.JSONSchemaProps) []olmCSV.SpecDescriptor {
+	descriptors := []olmCSV.SpecDescriptor{}
 	for name, param := range schema.Properties {
-		descriptors = append(descriptors, csv.SpecDescriptor{
+		descriptors = append(descriptors, olmCSV.SpecDescriptor{
 			Path:        name,
 			DisplayName: param.Title,
 			Description: param.Description,
