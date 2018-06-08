@@ -41,7 +41,7 @@ var convertCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		err := runConvert()
 		if err != nil {
-			panic(err)
+			panic(err) //TODO
 		}
 	},
 }
@@ -88,12 +88,10 @@ func writeArtifacts(csvs []olmCSV.ClusterServiceVersion, crds []v1beta1.CustomRe
 		path := filepath.Join(outputDir, "ClusterServiceVersions", clusterServiceVersion.Name+".yaml")
 		dumped, err := yaml.Marshal(clusterServiceVersion)
 		if err != nil {
-			panic(err)
 			return err
 		}
 		err = ioutil.WriteFile(path, dumped, fileMode)
 		if err != nil {
-			panic(err)
 			return err
 		}
 	}
@@ -105,12 +103,25 @@ func writeArtifacts(csvs []olmCSV.ClusterServiceVersion, crds []v1beta1.CustomRe
 		path := filepath.Join(outputDir, "CustomResourceDefinitions", crd.Name+".yaml")
 		dumped, err := yaml.Marshal(crd)
 		if err != nil {
-			panic(err)
 			return err
 		}
 		err = ioutil.WriteFile(path, dumped, fileMode)
 		if err != nil {
-			panic(err)
+			return err
+		}
+	}
+	for _, pkg := range packages {
+		err := os.Mkdir(filepath.Join(outputDir, "Packages"), dirMode)
+		if err != nil && !os.IsExist(err) {
+			return err
+		}
+		path := filepath.Join(outputDir, "Packages", pkg.PackageName+".yaml")
+		dumped, err := yaml.Marshal(pkg)
+		if err != nil {
+			return err
+		}
+		err = ioutil.WriteFile(path, dumped, fileMode)
+		if err != nil {
 			return err
 		}
 	}

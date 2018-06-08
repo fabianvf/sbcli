@@ -44,6 +44,16 @@
   revision = "226009efa4556f31023712fe955262f435039e3b"
 
 [[projects]]
+  name = "github.com/coreos-inc/tectonic-operators"
+  packages = [
+    "lib/manifest/diff",
+    "operator-client/pkg/client",
+    "operator-client/pkg/types"
+  ]
+  revision = "ce8f852845eb091e00f22718ba6f84113271b1f7"
+  version = "beryllium-m1"
+
+[[projects]]
   name = "github.com/coreos/etcd"
   packages = [
     "client",
@@ -143,6 +153,18 @@
   name = "github.com/golang/glog"
   packages = ["."]
   revision = "23def4e6c14b4da8ac2ed8007337bc5eb5007998"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/golang/groupcache"
+  packages = ["lru"]
+  revision = "24b0969c4cb722950103eed87108c8d291a8df00"
+
+[[projects]]
+  name = "github.com/golang/mock"
+  packages = ["gomock"]
+  revision = "c34cdb4725f4c3844d095133c6e40e448b86589b"
+  version = "v1.1.1"
 
 [[projects]]
   name = "github.com/golang/protobuf"
@@ -294,7 +316,8 @@
   name = "github.com/operator-framework/operator-lifecycle-manager"
   packages = [
     "pkg/api/apis",
-    "pkg/api/apis/clusterserviceversion/v1alpha1"
+    "pkg/api/apis/clusterserviceversion/v1alpha1",
+    "pkg/controller/registry"
   ]
   revision = "94bf9838968494451c3b5147cf9146baf3c5c48f"
   version = "0.4.0"
@@ -411,6 +434,7 @@
   branch = "master"
   name = "golang.org/x/net"
   packages = [
+    "context",
     "http/httpguts",
     "http2",
     "http2/hpack",
@@ -475,7 +499,7 @@
   version = "v2.2.1"
 
 [[projects]]
-  branch = "master"
+  branch = "release-1.9"
   name = "k8s.io/api"
   packages = [
     "admissionregistration/v1alpha1",
@@ -507,21 +531,25 @@
     "storage/v1alpha1",
     "storage/v1beta1"
   ]
-  revision = "1c973d529bdf4c4f349357ca665fb8e1d13e2d0d"
+  revision = "9273ee02527c608cecc74969b3e489f5dba686da"
 
 [[projects]]
-  branch = "master"
+  branch = "release-1.9"
   name = "k8s.io/apiextensions-apiserver"
   packages = [
     "pkg/apis/apiextensions",
-    "pkg/apis/apiextensions/v1beta1"
+    "pkg/apis/apiextensions/v1beta1",
+    "pkg/client/clientset/clientset",
+    "pkg/client/clientset/clientset/scheme",
+    "pkg/client/clientset/clientset/typed/apiextensions/v1beta1"
   ]
-  revision = "a01914bc74d2605fef74a0248d2eec998f0bb093"
+  revision = "57b18d0a31ddcb1b50670da5be8488cb1871eb61"
 
 [[projects]]
   branch = "release-1.9"
   name = "k8s.io/apimachinery"
   packages = [
+    "pkg/api/equality",
     "pkg/api/errors",
     "pkg/api/meta",
     "pkg/api/resource",
@@ -549,16 +577,19 @@
     "pkg/util/httpstream/spdy",
     "pkg/util/intstr",
     "pkg/util/json",
+    "pkg/util/mergepatch",
     "pkg/util/net",
     "pkg/util/remotecommand",
     "pkg/util/runtime",
     "pkg/util/sets",
+    "pkg/util/strategicpatch",
     "pkg/util/validation",
     "pkg/util/validation/field",
     "pkg/util/wait",
     "pkg/util/yaml",
     "pkg/version",
     "pkg/watch",
+    "third_party/forked/golang/json",
     "third_party/forked/golang/netutil",
     "third_party/forked/golang/reflect"
   ]
@@ -607,7 +638,10 @@
     "tools/clientcmd/api",
     "tools/clientcmd/api/latest",
     "tools/clientcmd/api/v1",
+    "tools/leaderelection",
+    "tools/leaderelection/resourcelock",
     "tools/metrics",
+    "tools/record",
     "tools/reference",
     "tools/remotecommand",
     "transport",
@@ -623,12 +657,15 @@
 [[projects]]
   branch = "master"
   name = "k8s.io/kube-openapi"
-  packages = ["pkg/common"]
+  packages = [
+    "pkg/common",
+    "pkg/util/proto"
+  ]
   revision = "1e45fb05b06309c0d807d0930e1a81fe0a1cd4b8"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "2e2755f280ca34d65ea66bcad4ed4191b1a986a68d3dec56c573ccca67222481"
+  inputs-digest = "6eca6245fa6afdaf640be82448be1e5d86e665430f7d0f61132329ea84f1d0bc"
   solver-name = "gps-cdcl"
   solver-version = 1

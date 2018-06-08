@@ -33,6 +33,10 @@
   name = "github.com/spf13/cobra"
   version = "0.0.2"
 
+[[override]]
+  name = "k8s.io/client-go"
+  branch = "release-6.0"
+
 [prune]
   go-tests = true
   unused-packages = true
