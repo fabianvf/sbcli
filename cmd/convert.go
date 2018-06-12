@@ -51,7 +51,7 @@ var outputDir string
 
 func init() {
 	convertCmd.Flags().StringVarP(&inputFile, "file", "f", "apb.yml", "path to APB spec")
-	convertCmd.Flags().StringVarP(&outputDir, "output-dir", "o", "operator-artifacts", "directory to store generated operator artifacts")
+	convertCmd.Flags().StringVarP(&outputDir, "output-dir", "o", "", "directory to store generated operator artifacts")
 	rootCmd.AddCommand(convertCmd)
 }
 
@@ -75,6 +75,9 @@ func runConvert() error {
 func writeArtifacts(csvs []olmCSV.ClusterServiceVersion, crds []v1beta1.CustomResourceDefinition, packages []olmRegistry.PackageManifest) error {
 	dirMode := os.FileMode(0766)
 	fileMode := os.FileMode(0666)
+	if outputDir == "" {
+		outputDir = filepath.Join(filepath.Dir(inputFile), "operator-artifacts")
+	}
 	err := os.MkdirAll(outputDir, dirMode)
 	if err != nil && !os.IsExist(err) {
 		return err
@@ -135,8 +138,11 @@ func convertSpec(spec *bundle.Spec) ([]olmCSV.ClusterServiceVersion, []v1beta1.C
 	for _, plan := range spec.Plans {
 		crd := PlanToCRD(spec, plan)
 		crds = append(crds, crd)
-		csv := PlanToCSV(plan, spec, crd)
-		csvs = append(csvs, csv)
+		csv, err := PlanToCSV(plan, spec, crd)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		csvs = append(csvs, *csv)
 		packages = append(packages, olmRegistry.PackageManifest{
 			PackageName: csv.ObjectMeta.Name,
 			Channels: []olmRegistry.PackageChannel{
@@ -254,7 +260,7 @@ func getType(paramType string) string {
 	return "string"
 }
 
-func apbDeployment(spec *bundle.Spec, plan bundle.Plan, crd v1beta1.CustomResourceDefinition) string {
+func apbDeployment(spec *bundle.Spec, plan bundle.Plan, crd v1beta1.CustomResourceDefinition) (string, error) {
 	apbDeploymentTmpl := `permissions:
 - serviceAccountName: {{.name}}-operator
   rules:
@@ -318,9 +324,9 @@ deployments:
 	template.Must(template.New("").Parse(apbDeploymentTmpl)).Execute(b, params)
 	y, err := yaml.YAMLToJSON(b.Bytes())
 	if err != nil {
-		panic(err) //TODO
+		return "", err //TODO
 	}
-	return string(y)
+	return string(y), nil
 }
 
 func getVersion(apb_version string) *semver.Version {
@@ -336,14 +342,18 @@ func getVersion(apb_version string) *semver.Version {
 	return semver.New(apb_version + ".0.0") //TODO
 }
 
-func PlanToCSV(plan bundle.Plan, spec *bundle.Spec, crd v1beta1.CustomResourceDefinition) olmCSV.ClusterServiceVersion {
+func PlanToCSV(plan bundle.Plan, spec *bundle.Spec, crd v1beta1.CustomResourceDefinition) (*olmCSV.ClusterServiceVersion, error) {
 
 	specVersion := getVersion(spec.Version)
 	csvName := fmt.Sprintf("%s.%s", spec.FQName, plan.Name)
 	displayName := fmt.Sprintf("%s: %s plan", getAPBMeta(spec.Metadata, "displayName", spec.FQName), plan.Name)
 	description := getAPBMeta(spec.Metadata, "longDescription", spec.Description)
+	deployment, err := apbDeployment(spec, plan, crd)
+	if err != nil {
+		return nil, err
+	}
 
-	return olmCSV.ClusterServiceVersion{
+	return &olmCSV.ClusterServiceVersion{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       olmCSV.ClusterServiceVersionKind,
 			APIVersion: olmCSV.ClusterServiceVersionAPIVersion,
@@ -371,13 +381,13 @@ func PlanToCSV(plan bundle.Plan, spec *bundle.Spec, crd v1beta1.CustomResourceDe
 			Icon:  []olmCSV.Icon{getIcon(spec)},
 			InstallStrategy: olmCSV.NamedInstallStrategy{
 				StrategyName:    "deployment",
-				StrategySpecRaw: json.RawMessage(apbDeployment(spec, plan, crd)),
+				StrategySpecRaw: json.RawMessage(deployment),
 			},
 			CustomResourceDefinitions: olmCSV.CustomResourceDefinitions{
 				Owned: []olmCSV.CRDDescription{CRDToCSVCRD(crd)},
 			},
 		},
-	}
+	}, nil
 }
 
 func getLinks(metadata map[string]interface{}) []olmCSV.AppLink {
